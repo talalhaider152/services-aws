@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create IAM user, policy, role, Glue job, and an EC2 instance
+
+Resources:
+
+  GlueJobUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: glue-job-user
+
+  GlueJobPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: GlueJobPolicy
+      Users:
+        - !Ref GlueJobUser
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - glue:StartJobRun
+              - glue:GetJob
+              - glue:GetJobRun
+              - glue:GetJobRuns
+              - glue:CreateJob
+              - glue:UpdateJob
+              - glue:DeleteJob
+            Resource: '*'
+
+  GlueJobExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GlueJobExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+      Policies:
+        - PolicyName: GlueJobInlinePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                  - logs:*
+                  - glue:*
+                Resource: "*"
+
+  MyGlueJob:
+    Type: 'AWS::Glue::Job'
+    Properties:
+      Name: my-glue-job
+      Role: 'arn:aws:iam::973516475030:role/GlueJobExecutionRole'
+      Command:
+        Name: glueetl
+        ScriptLocation: 's3://testubaidd/scripts/my-glue-script.py'
+        PythonVersion: '3'
+      GlueVersion: '3.0'
+      MaxRetries: 0
+      Timeout: 10
+      MaxCapacity: 2
+
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-0c02fb55956c7d316  
+      KeyName: TESTKEY    
+      Tags:
+        - Key: Name
+          Value: MyEC2Instance
